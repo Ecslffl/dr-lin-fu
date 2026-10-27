@@ -1,0 +1,25 @@
+# 内置的完整 Python 解释器（约 2.4 GB / 6155 个文件），只在本地使用，不进仓库
+python/
+.venv/
+venv/
+
+# 运行时生成的本地设置（config.py 会在缺失时写默认值）
+jp_subtitle_app/settings.json
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# 识别缓存与字幕产物（通常落在影片同目录，这里兜底）
+*.ja.json
+*.srt
+*.vtt
+
+# pip 安装 CUDA 运行时产生的目录（GPU 依赖由 requirements.txt 声明）
+**/site-packages/
+
+# 系统/编辑器文件
+Thumbs.db
+.DS_Store
+*.tmp
