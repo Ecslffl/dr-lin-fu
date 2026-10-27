@@ -25,6 +25,9 @@ D:\AI_Work\SRT\
 ├── python\               ← 项目内置完整 Python 3.13.16（python.org 官方版，
 │                           自带 tkinter/Tcl 8.6.15；本机原先缺少可用的 GUI Python，
 │                           故随项目内置一份，可整体删除不影响系统）
+│                           ※ 该目录约 2.4 GB，已写入 .gitignore，不在 GitHub 仓库里；
+│                             clone 后需本机有 Python 3.10+（勾选 tcl/tk 与 pip），
+│                             「安装依赖.bat」会自动探测 python\、.venv 或 PATH 中的 Python
 └── jp_subtitle_app\       ← 应用源码
     ├── main.py           入口
     ├── gui.py            tkinter 界面
@@ -39,6 +42,7 @@ D:\AI_Work\SRT\
 
 1. **安装依赖**（一次性，约几分钟）：双击 `安装依赖.bat`
    - 自动检测 `python\` 内置 Python（或本机其他带 tkinter 的 Python）并安装 faster-whisper、numpy、requests、imageio-ffmpeg
+   - GPU 识别还会装 CUDA 12 运行时 dll（`nvidia-cublas-cu12` / `nvidia-cuda-runtime-cu12` / `nvidia-cudnn-cu12` / `nvidia-cuda-nvrtc-cu12`，约 1.3 GB，见 requirements.txt）；`main.py` 会把它们加到 PATH，所以系统只装了 CUDA 13 也能用 GPU
    - 首次识别时会自动下载 Whisper 模型（large-v3 约 3GB，走 hf-mirror 国内镜像），之后走本地缓存
 2. **启动**：双击 `启动字幕生成器.bat`
 3. **准备翻译服务**（二选一）：
@@ -66,6 +70,7 @@ D:\AI_Work\SRT\
 - **识别出 0 段 / 大量漏识别**：VAD 阈值降到 0.2–0.3；「音频归一化」改 `loudnorm` 或 `none` 试试
 - **Whisper 反复输出同一句（幻觉循环）**：勾掉「使用上文提示识别」（默认已关闭）
 - **CUDA 报错 / 黑屏卡死**：设备选 `cpu` 跑（速度较慢但稳定）；N 卡驱动建议更新
+- **`Library cublas64_12.dll is not found or cannot be loaded`**：缺 CUDA 12 运行时，重跑一次 `安装依赖.bat`（会装上面那几个 `nvidia-*-cu12` 包）；实在装不上就把设备改成 `cpu`
 - **提示无法连接翻译服务**：确认 LM Studio 已启动 Server；或改用云端服务并填 API Key
 - **模型下载慢**：脚本默认走 `https://hf-mirror.com` 镜像；已设置 `HF_ENDPOINT` 则尊重你的配置
 
