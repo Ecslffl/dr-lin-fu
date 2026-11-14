@@ -48,15 +48,39 @@ def probe_duration(path):
     return None
 
 
-def _afilter(normalize):
+def _afilter(normalize, gain_db=0.0, denoise=False):
+    """组装 ffmpeg 音频滤镜链：增益 → 归一化 → 降噪(→限幅)。
+
+    实测要点（用 -50dBFS 级轻声素材逐条对照得出）：
+    - dynaudnorm 的 gausssize(framelen) 取默认 31/500 时对轻声完全不起作用，
+      必须用 f=200:g=15 才有效，且 maxgain(m) 默认 10 只够 +20dB，
+      轻声对白需要放宽到 30 才抬得起来；
+    - afftdn 若放在归一化之前，会把低于噪声门限的轻声整体当噪声压掉
+      （实测 -52dBFS 素材被削到 -64dBFS），所以降噪必须放在归一化之后；
+    - 数字静音不会被放大（峰值仍为 0），微弱底噪只抬到约 -41dBFS，
+      不会凭空制造出“像人声”的大电平噪声。
+    """
+    parts = []
+    try:
+        gain = float(gain_db or 0.0)
+    except (TypeError, ValueError):
+        gain = 0.0
+    if gain:
+        parts.append(f"volume={gain:g}dB")
     if normalize == "dynaudnorm":
-        return "dynaudnorm=f=200:g=15"
-    if normalize == "loudnorm":
-        return "loudnorm=I=-16:TP=-1.5:LRA=11"
-    return "anull"
+        parts.append("dynaudnorm=f=200:g=15:p=0.95:m=30")
+    elif normalize == "loudnorm":
+        parts.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+    elif gain:
+        # 只加增益不做归一化时，补一级限幅，防止大声部分削顶失真
+        parts.append("alimiter=limit=0.95")
+    if denoise:
+        parts.append("afftdn=nf=-25:tn=1")
+    return ",".join(parts) if parts else "anull"
 
 
-def decode_audio_pcm(path, sample_rate=16000, normalize="dynaudnorm"):
+def decode_audio_pcm(path, sample_rate=16000, normalize="dynaudnorm",
+                     gain_db=0.0, denoise=False):
     """把任意音视频解码为 16kHz 单声道 float32 PCM，返回 numpy 数组。
     绕开 PyAV 在部分 Python 版本上的兼容问题，直接走 ffmpeg stdout。
     """
@@ -64,7 +88,7 @@ def decode_audio_pcm(path, sample_rate=16000, normalize="dynaudnorm"):
     if not exe:
         raise RuntimeError("未找到 ffmpeg，请安装 ffmpeg 或 imageio-ffmpeg 后重试")
     cmd = [exe, "-nostdin", "-hide_banner", "-loglevel", "error",
-           "-i", path, "-vn", "-af", _afilter(normalize),
+           "-i", path, "-vn", "-af", _afilter(normalize, gain_db, denoise),
            "-ar", str(sample_rate), "-ac", "1",
            "-f", "f32le", "-"]
     try:
@@ -79,13 +103,14 @@ def decode_audio_pcm(path, sample_rate=16000, normalize="dynaudnorm"):
     return audio
 
 
-def decode_to_wav(path, wav_path, sample_rate=16000, normalize="dynaudnorm"):
+def decode_to_wav(path, wav_path, sample_rate=16000, normalize="dynaudnorm",
+                  gain_db=0.0, denoise=False):
     """解码为临时 WAV（API 转写用），返回 wav 路径。"""
     exe = find_ffmpeg()
     if not exe:
         raise RuntimeError("未找到 ffmpeg，请安装 ffmpeg 或 imageio-ffmpeg 后重试")
     cmd = [exe, "-nostdin", "-hide_banner", "-loglevel", "error",
-           "-i", path, "-vn", "-af", _afilter(normalize),
+           "-i", path, "-vn", "-af", _afilter(normalize, gain_db, denoise),
            "-ar", str(sample_rate), "-ac", "1",
            "-c:a", "pcm_s16le", "-y", wav_path]
     proc = subprocess.run(cmd, capture_output=True)
