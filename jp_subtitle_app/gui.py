@@ -19,6 +19,11 @@ VIDEO_TYPES = [
     ("所有文件", "*.*"),
 ]
 
+# 设置区限高：Notebook 的高度取自最高的一页，所以每页都固定高度 + 滚动条，
+# 设置区不再随内容长高，省下来的高度全部给片段预览和日志。
+TAB_VIEW_H = 208
+HELP_VIEW_LINES = 8
+
 
 class SubtitleApp:
     def __init__(self, root):
@@ -48,6 +53,7 @@ class SubtitleApp:
     # ============================================================ UI
     def _build_ui(self):
         self.root.columnconfigure(0, weight=1)
+        self.root.rowconfigure(1, weight=0)   # 设置区固定压缩高度，多余空间给中部
         self.root.rowconfigure(2, weight=1)   # 中部 PanedWindow（片段+日志）
 
         # ---- 队列与操作按钮 ----
@@ -70,7 +76,7 @@ class SubtitleApp:
         self.lbl_video_info = ttk.Label(f_top, text="尚未选择影片", foreground="#666")
         self.lbl_video_info.grid(row=2, column=0, columnspan=5, sticky="w", padx=6)
 
-        # ---- 选项页 ----
+        # ---- 选项页（每页内容限高 + 滚动条，设置区不随窗口长高，把高度让给预览/日志） ----
         nb = ttk.Notebook(self.root)
         nb.grid(row=1, column=0, sticky="nsew", padx=8, pady=4)
         self._build_tab_asr(nb)
@@ -85,7 +91,8 @@ class SubtitleApp:
 
         # ---- 片段预览 ----
         f_seg = ttk.LabelFrame(self.pw, text="字幕片段预览（双击某行可编辑日文/中文）")
-        self.pw.add(f_seg)
+        self.pw_seg = f_seg
+        self.pw.add(f_seg, weight=1)
         f_seg.columnconfigure(0, weight=1)
         f_seg.rowconfigure(0, weight=1)
 
@@ -136,9 +143,10 @@ class SubtitleApp:
                                    command=self._open_output_dir)
         self.btn_open.pack(side="left", padx=4)
 
-        # ---- 日志（PanedWindow 下半区，初始 256px，可拖拽调节） ----
-        f_log = ttk.LabelFrame(self.pw, text="日志（拖拽上下两个区域之间的分隔条可自由调节高度）")
-        self.pw.add(f_log)
+        # ---- 日志（PanedWindow 下半区，初始与片段预览等高，可拖拽调节） ----
+        f_log = ttk.LabelFrame(self.pw, text="日志（拖拽两个区域之间的分隔条可调节高度）")
+        self.pw_log = f_log
+        self.pw.add(f_log, weight=1)
         f_log.columnconfigure(0, weight=1)
         f_log.rowconfigure(0, weight=1)
         self.txt_log = scrolledtext.ScrolledText(f_log, height=12, state="disabled",
@@ -149,11 +157,26 @@ class SubtitleApp:
         self.root.after(200, self._set_initial_split)
 
     def _set_initial_split(self):
-        """初始化分隔条位置：日志区高度约 256px。"""
+        """初始化分隔条位置：日志区与片段预览高度一致。
+
+        两个 pane 都以 weight=1 加入，窗口变高时两边等比例增长，保持等高；
+        分隔条本身有几像素厚度，所以先按中点放置，再按实测高度补一次微调。
+        用户手动拖过分隔条后不再强制回中。
+        """
         try:
+            self.root.update_idletasks()
             h = self.pw.winfo_height()
-            if h > 200:
-                self.pw.sashpos(0, max(120, h - 266))
+            if h <= 200:
+                return
+            pos = h // 2
+            self.pw.sashpos(0, pos)
+            self.root.update_idletasks()
+            seg = self.pw_seg.winfo_height()
+            log = self.pw_log.winfo_height()
+            if seg > 0 and log > 0 and abs(seg - log) > 1:
+                # 分隔条往下移会让上区变高、下区变矮，所以按差值反向微调
+                self.pw.sashpos(0, pos - (seg - log) // 2)
+                self.root.update_idletasks()
         except Exception:
             pass
 
@@ -182,12 +205,13 @@ class SubtitleApp:
                       "建议至少 medium，追求准确用 large-v3。")
 
     # ---------------- 可滚动容器 ----------------
-    def _scroll_host(self, parent):
+    def _scroll_host(self, parent, height=TAB_VIEW_H):
         """把父容器变成可上下滚动的区域，返回内容 Frame。
 
-        识别参数较多，窗口高度有限，用滚动避免控件被裁掉。
+        识别/翻译/审查参数较多，而设置区被限高，用滚动条代替把控件裁掉。
+        height 固定可见区域高度，父容器（Notebook 的某一页）因此不会随内容长高。
         """
-        canvas = tk.Canvas(parent, highlightthickness=0, borderwidth=0)
+        canvas = tk.Canvas(parent, height=height, highlightthickness=0, borderwidth=0)
         vs = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
         inner = ttk.Frame(canvas, padding=10)
         win = canvas.create_window((0, 0), window=inner, anchor="nw")
@@ -204,8 +228,10 @@ class SubtitleApp:
         def on_wheel(event):
             canvas.yview_scroll(int(-event.delta / 120), "units")
 
-        canvas.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_wheel))
-        canvas.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
+        # 鼠标停在内容（输入框、勾选框）上时也要能滚，所以内容区一起绑定
+        for w in (canvas, inner):
+            w.bind("<Enter>", lambda e: canvas.bind_all("<MouseWheel>", on_wheel))
+            w.bind("<Leave>", lambda e: canvas.unbind_all("<MouseWheel>"))
         return inner
 
     # ---------------- 识别设置页 ----------------
@@ -489,8 +515,8 @@ none：不处理，保留原始动态；只在怀疑处理本身导致识别异�
         tab.rowconfigure(0, weight=1)
         tab.columnconfigure(0, weight=1)
         txt = scrolledtext.ScrolledText(tab, wrap="word", font=("Microsoft YaHei UI", 10),
-                                        padx=12, pady=10, relief="flat",
-                                        background="#fbfbfb")
+                                       padx=12, pady=10, relief="flat",
+                                       background="#fbfbfb", height=HELP_VIEW_LINES)
         txt.grid(row=0, column=0, sticky="nsew")
         txt.insert("1.0", self.HELP_TEXT)
         txt.config(state="disabled")
@@ -547,8 +573,9 @@ none：不处理，保留原始动态；只在怀疑处理本身导致识别异�
 
     # ---------------- 翻译设置页 ----------------
     def _build_tab_llm(self, nb):
-        t = ttk.Frame(nb, padding=10)
-        nb.add(t, text="翻译设置")
+        tab = ttk.Frame(nb)
+        nb.add(tab, text="翻译设置")
+        t = self._scroll_host(tab)
         t.columnconfigure(1, weight=1)
 
         self.var_base_url = tk.StringVar()
@@ -715,8 +742,9 @@ none：不处理，保留原始动态；只在怀疑处理本身导致识别异�
 
     # ---------------- 导出设置页 ----------------
     def _build_tab_export(self, nb):
-        t = ttk.Frame(nb, padding=10)
-        nb.add(t, text="导出设置")
+        tab = ttk.Frame(nb)
+        nb.add(tab, text="导出设置")
+        t = self._scroll_host(tab)
         t.columnconfigure(1, weight=1)
 
         self.var_mode = tk.StringVar()
