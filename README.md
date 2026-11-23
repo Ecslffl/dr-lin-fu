@@ -4,6 +4,14 @@
 
 本工具是在你提供的 `生成日语字幕.bat` 基础上的 GUI 升级版：批量加载影片、可视化进度与日志、字幕片段预览与逐条编辑、多格式导出。
 
+## 获取代码
+
+```bash
+git clone https://gitee.com/ecslffl/dr-lin-fu.git
+```
+
+clone 后先跑一次 `安装依赖.bat`（或 `pip install -r requirements.txt`），再双击 `启动字幕生成器.bat`。仓库不含内置 Python 目录，需要本机有 Python 3.10+（含 tkinter）。发行版 `v1.0.0` 附带 zip 包。
+
 ## 功能
 
 - **影片加载**：批量添加 mp4 / mkv / avi / mov / wmv / flv / webm 及常见音频格式，多文件队列依次处理
@@ -26,7 +34,7 @@ D:\AI_Work\SRT\
 ├── python\               ← 项目内置完整 Python 3.13.16（python.org 官方版，
 │                           自带 tkinter/Tcl 8.6.15；本机原先缺少可用的 GUI Python，
 │                           故随项目内置一份，可整体删除不影响系统）
-│                           ※ 该目录约 2.4 GB，已写入 .gitignore，不在 GitHub 仓库里；
+│                           ※ 该目录约 2.4 GB，已写入 .gitignore，不在公开仓库里；
 │                             clone 后需本机有 Python 3.10+（勾选 tcl/tk 与 pip），
 │                             「安装依赖.bat」会自动探测 python\、.venv 或 PATH 中的 Python
 └── jp_subtitle_app\       ← 应用源码
