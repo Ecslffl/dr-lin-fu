@@ -11,7 +11,8 @@
 ## 获取代码
 
 ```bash
-git clone https://gitee.com/ecslffl/dr-lin-fu.git
+git clone https://gitee.com/ecslffl/dr-lin-fu.git     # Gitee（国内推荐）
+git clone https://github.com/Ecslffl/dr-lin-fu.git    # GitHub 镜像，同一份代码
 ```
 
 clone 后先跑一次 `安装依赖.bat`（或 `pip install -r requirements.txt`），再双击 `启动字幕生成器.bat`。仓库不含内置 Python 目录，需要本机有 Python 3.10+（含 tkinter）。发行版 `v1.0.0` 附带 zip 包。
