@@ -145,3 +145,7 @@ D:\AI_Work\SRT\
 - 音频解码走 ffmpeg（imageio-ffmpeg 内置），无需单独安装 ffmpeg
 - 字幕时间轴来自 Whisper 识别结果，编辑片段只改文本不影响时间轴
 - 首次使用本地大模型需联网下载模型；识别与翻译都在本机/你配置的服务完成
+
+## 许可证
+
+MIT，见 [LICENSE](LICENSE)。第三方依赖各自的许可证不变：faster-whisper（MIT）、ctranslate2（MIT）、imageio-ffmpeg（Apache-2.0）、numpy（BSD-3）、requests（Apache-2.0）。下载的 Whisper 模型权重由 Hugging Face 上的各自许可证约束（`tiny/base/small/medium/large-v3` 均为 MIT），与本项目许可证无关。
